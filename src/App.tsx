@@ -5,6 +5,7 @@ import Tesseract from 'tesseract.js';
 interface Item {
   name: string;
   price: number;
+  quantity: number;
 }
 
 const App: React.FC = () => {
@@ -18,16 +19,29 @@ const App: React.FC = () => {
     const parsedItems: Item[] = [];
     let totalPrice = 0;
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const match = line.match(/(.+?)\s*\$([\d.]+)/);
+
       if (match) {
         const name = match[1].replace(/Qty\d+|Multipack Quantity:.*/i, '').trim();
         const price = parseFloat(match[2]);
-        if (!isNaN(price)) parsedItems.push({ name, price });
+
+        let quantity = 1;
+        const nextLine = lines[i + 1] || '';
+        const qtyMatch = nextLine.match(/Qty\s*(\d+)/i);
+        if (qtyMatch) {
+          quantity = parseInt(qtyMatch[1]);
+          i++; // skip the quantity line
+        }
+
+        if (!isNaN(price) && price < 100) {
+          parsedItems.push({ name, price, quantity });
+        }
       }
     }
 
-    totalPrice = parsedItems.reduce((sum, item) => sum + item.price, 0);
+    totalPrice = parsedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     setItems(parsedItems);
     setTotal(Number(totalPrice.toFixed(2)));
@@ -64,10 +78,14 @@ const App: React.FC = () => {
           <h3>Parsed Items</h3>
           <ul>
             {items.map((item, i) => (
-              <li key={i}>{item.name} — ${item.price.toFixed(2)}</li>
+<li key={i}>
+  <strong>{item.name}</strong><br />
+  Quantity: {item.quantity}, Price per unit: ${item.price.toFixed(2)}
+</li>
+
             ))}
           </ul>
-          <p><strong>Total Items:</strong> {items.length}</p>
+          <p><strong>Total Items:</strong> {items.reduce((sum, item) => sum + item.quantity, 0)}</p>
           <p><strong>Total Price:</strong> ${total?.toFixed(2)}</p>
         </>
       )}
